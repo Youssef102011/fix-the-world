@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fix The World — Demo (Single File)</title>
+
+  <!-- Fav & theme -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%2306b6d4'/%3E%3Cpath d='M30 55c6-6 20-6 26 0' stroke='%23fff' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#06b6d4">
+
+  <!-- Bootstrap + Icons + Leaflet CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="" crossorigin=""/>
+
+  <style>
+    /* ---------- Visual theme ---------- */
+    :root{
+      --bg: #f6fbff;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent1: #06b6d4;
+      --accent2: #2563eb;
+    }
+    [data-theme="dark"]{
+      --bg: #071129;
+      --card: #071a2b;
+      --muted: #9aa6b2;
+    }
+
+    html,body{ height:100%; }
+    body{
+      margin:0; padding:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, var(--bg), #eef6fb);
+      color: #0b1220;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .container-xl{ max-width:1200px; }
+    .brand { display:flex; gap:12px; align-items:center; }
+    .brand .logo{ width:46px; height:46px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:white; background:linear-gradient(135deg,var(--accent1),var(--accent2)); font-weight:700; font-size:20px; }
+    .navbar { background: rgba(255,255,255,0.6); backdrop-filter: blur(6px); }
+    [data-theme="dark"] .navbar { background: rgba(7,26,43,0.6); }
+
+    .main { padding:20px 16px 80px; }
+    .card-surface { background:var(--card); border-radius:14px; padding:14px; box-shadow: 0 10px 30px rgba(15,25,40,0.06); }
+    [data-theme="dark"] .card-surface { box-shadow: 0 6px 18px rgba(2,6,23,0.6); }
+
+    #map { width:100%; height:520px; border-radius:12px; overflow:hidden; }
+    .mission-photo { width:100%; height:160px; object-fit:cover; border-radius:8px; }
+
+    .small-muted { color:var(--muted); font-size:.9rem; }
+    .tag { font-size:.78rem; padding:.18rem .5rem; border-radius:999px; background:#eef2ff; color:#3730a3; display:inline-block; }
+    [data-theme="dark"] .tag { background:#0f1724; color:#93c5fd; }
+
+    .floating-btn { position:fixed; right:22px; bottom:22px; z-index:1400; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; box-shadow: 0 12px 32px rgba(2,6,23,0.18); background:linear-gradient(135deg,#34d399,#60a5fa); font-size:20px; border:none; }
+    .dark-toggle { cursor:pointer; padding:8px 10px; border-radius:10px; background:transparent; border:1px solid rgba(0,0,0,0.05); }
+    [data-theme="dark"] .dark-toggle { border-color: rgba(255,255,255,0.06); }
+
+    .page { display:none; }
+    .page.active { display:block; }
+
+    .footer { text-align:center; padding:18px; color:var(--muted); font-size:.9rem; }
+
+    /* responsive */
+    @media (max-width: 992px){
+      #map{ height:360px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App shell data-theme toggled by JS -->
+  <div id="app" data-theme="light">
+
+    <!-- NAV -->
+    <nav class="navbar navbar-expand-lg sticky-top shadow-sm">
+      <div class="container container-xl">
+        <a class="navbar-brand brand" href="#" data-link="home">
+          <div class="logo"><i class="fa-solid fa-leaf"></i></div>
+          <div>
+            <div style="font-weight:700">Fix The World</div>
+            <small class="small-muted">Demo — Make an impact</small>
+          </div>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navCollapse">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navCollapse">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-3">
+            <li class="nav-item"><a class="nav-link" href="#" data-link="home"><i class="fa-solid fa-house"></i> Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" data-link="map"><i class="fa-solid fa-map-location-dot"></i> Map</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" data-link="missions"><i class="fa-solid fa-list-check"></i> Missions</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" data-link="leaders"><i class="fa-solid fa-trophy"></i> Leaderboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" data-link="ai"><i class="fa-solid fa-robot"></i> AI Helper</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" data-link="about"><i class="fa-solid fa-circle-info"></i> About</a></li>
+          </ul>
+
+          <div class="d-flex align-items-center gap-2">
+            <div class="me-2 text-end d-none d-md-block">
+              <div id="headerXP" style="font-weight:700">XP: 0</div>
+              <div class="small-muted" id="headerLevel">Beginner</div>
+            </div>
+
+            <button class="btn btn-outline-secondary btn-sm me-2" id="btnInstall" style="display:none"><i class="fa-solid fa-download me-1"></i> Install</button>
+
+            <button class="btn btn-light dark-toggle" id="toggleTheme" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+
+            <div class="dropdown ms-2">
+              <a href="#" class="d-flex align-items-center text-decoration-none" data-bs-toggle="dropdown">
+                <img id="navAvatar" src="https://i.pravatar.cc/64?img=5" style="width:44px;height:44px;border-radius:10px;">
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#" data-link="profile"><i class="fa-solid fa-user me-2"></i> Profile</a></li>
+                <li><a class="dropdown-item" href="#" id="menuExport"><i class="fa-solid fa-arrow-up-from-bracket me-2"></i> Export Data</a></li>
+                <li><a class="dropdown-item" href="#" id="menuImport"><i class="fa-solid fa-arrow-down-to-bracket me-2"></i> Import Data</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#" id="menuReset"><i class="fa-solid fa-trash me-2"></i> Reset Demo</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main container container-xl">
+
+      <!-- HOME -->
+      <section id="page-home" class="page active">
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="card-surface mb-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h3 style="margin:0">Make an impact today</h3>
+                  <div class="small-muted">Find missions, create your own, or join a local action — all from this demo.</div>
+                </div>
+                <div class="text-end">
+                  <div style="font-weight:700" id="xpTop">XP: 0</div>
+                  <div class="small-muted" id="levelTop">Beginner</div>
+                </div>
+              </div>
+
+              <hr>
+
+              <div id="map" class="mb-3"></div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary" id="btnDailyHome"><i class="fa-solid fa-sparkles me-1"></i> Generate Daily Mission</button>
+                <button class="btn btn-outline-secondary" id="btnSeedHome">Seed Demo Missions</button>
+                <div class="ms-auto small-muted" id="homeStats">— missions • — countries</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card-surface mb-3">
+              <div style="font-weight:700">Today's Quick Fix</div>
+              <div class="small-muted mt-1">A compact, real-world action you can complete today.</div>
+              <div class="mt-3" id="todayBox">
+                <div style="font-weight:700" id="todayTitle">—</div>
+                <div class="small-muted" id="todayDesc">Click 'Generate Daily Mission' to get one.</div>
+                <div class="mt-3">
+                  <button class="btn btn-success" id="btnAddToday">Add to my missions</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-surface mb-3">
+              <div style="font-weight:700">Leaderboard</div>
+              <div class="small-muted">Top contributors</div>
+              <ul id="miniLeaders" class="list-group list-group-flush mt-3"></ul>
+            </div>
+
+            <div class="card-surface">
+              <div style="font-weight:700">Quick Actions</div>
+              <div class="mt-2">
+                <button class="btn btn-outline-primary btn-sm w-100 mb-2" data-link="create">Create Mission</button>
+                <button class="btn btn-outline-secondary btn-sm w-100" data-link="missions">View Missions</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MAP PAGE -->
+      <section id="page-map" class="page">
+        <div class="card-surface">
+          <h4 style="margin:0">World Map — Missions & Activity</h4>
+          <div class="small-muted">Click anywhere to pre-fill create coordinates.</div>
+          <div id="mapLarge" style="height:600px; margin-top:12px; border-radius:12px; overflow:hidden;"></div>
+          <div class="mt-3 small-muted" id="mapPageStats">— missions</div>
+        </div>
+      </section>
+
+      <!-- MISSIONS PAGE -->
+      <section id="page-missions" class="page">
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="card-surface mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <h4 style="margin:0">All Missions</h4>
+                  <div class="small-muted">Search, filter, view and complete missions.</div>
+                </div>
+                <div>
+                  <input id="searchBox" class="form-control form-control-sm" placeholder="Search missions...">
+                </div>
+              </div>
+
+              <div id="missionsGrid" class="row g-3"></div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card-surface mb-3">
+              <div style="font-weight:700">My Missions</div>
+              <div class="small-muted">Missions you added or accepted</div>
+              <div id="myMissions" style="max-height:360px; overflow:auto;" class="mt-3"></div>
+            </div>
+
+            <div class="card-surface">
+              <div style="font-weight:700">Filters</div>
+              <div class="mt-2 d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-secondary btn-sm filter-btn" data-cat="">All</button>
+                <button class="btn btn-outline-secondary btn-sm filter-btn" data-cat="Environment">Environment</button>
+                <button class="btn btn-outline-secondary btn-sm filter-btn" data-cat="Human Help">Human Help</button>
+                <button class="btn btn-outline-secondary btn-sm filter-btn" data-cat="Education">Education</button>
+                <button class="btn btn-outline-secondary btn-sm filter-btn" data-cat="Local Fix">Local Fix</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CREATE PAGE -->
+      <section id="page-create" class="page">
+        <div class="card-surface">
+          <h4>Create a Mission</h4>
+          <div class="small-muted">Fill details and click 'Create'. Click map to auto-fill location.</div>
+          <form id="formCreate" class="row g-3 mt-3">
+            <div class="col-md-6"><label class="form-label">Title</label><input id="cTitle" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Category</label>
+              <select id="cCategory" class="form-select">
+                <option>Environment</option><option>Human Help</option><option>Education</option><option>Local Fix</option><option>Water & Food</option><option>Mental Health</option>
+              </select>
+            </div>
+            <div class="col-12"><label class="form-label">Description</label><textarea id="cDesc" class="form-control" rows="3"></textarea></div>
+            <div class="col-md-6"><label class="form-label">Location (lat,lng)</label><input id="cLatLng" class="form-control" placeholder="e.g. 30.0444,31.2357"></div>
+            <div class="col-md-6"><label class="form-label">Photo (optional)</label><input id="cPhoto" type="file" accept="image/*" class="form-control"></div>
+            <div class="col-12 text-end"><button class="btn btn-secondary" type="reset">Reset</button> <button class="btn btn-primary" type="submit">Create Mission</button></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- LEADERBOARD -->
+      <section id="page-leaders" class="page">
+        <div class="card-surface">
+          <h4>Leaderboard</h4>
+          <div class="small-muted">Top contributors this season</div>
+          <div class="row g-3 mt-3">
+            <div class="col-md-6"><ul id="leadersList" class="list-group"></ul></div>
+            <div class="col-md-6"><div style="font-weight:700">Your Progress</div><div class="small-muted">Earn XP by completing missions</div><div id="progressBox" class="mt-3"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI HELPER -->
+      <section id="page-ai" class="page">
+        <div class="card-surface">
+          <h4>AI Helper</h4>
+          <div class="small-muted">Use the AI to get step-by-step guidance for missions. This demo uses local templates. To use real GPT responses, follow the comments in the code to plug your backend.</div>
+          <div class="row g-3 mt-3">
+            <div class="col-md-6">
+              <label class="form-label">Select a mission</label>
+              <select id="aiMissionSelect" class="form-select"><option value="">— Choose —</option></select>
+            </div>
+            <div class="col-md-6 text-end">
+              <label class="form-label">Or ask a custom question</label>
+              <div class="d-flex gap-2"><input id="aiQuestion" class="form-control"><button class="btn btn-primary" id="btnAskAI">Ask</button></div>
+            </div>
+
+            <div class="col-12">
+              <div id="aiResult" class="card-surface" style="min-height:120px"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="page-profile" class="page">
+        <div class="card-surface">
+          <h4>Profile</h4>
+          <div class="small-muted">Edit your display name and avatar (stored locally)</div>
+          <div class="row g-3 mt-3">
+            <div class="col-md-3"><img id="profileAvatar" src="https://i.pravatar.cc/128?img=5" style="width:100%;border-radius:8px;"></div>
+            <div class="col-md-9">
+              <form id="profileForm" class="row g-3">
+                <div class="col-md-6"><label class="form-label">Display name</label><input id="profileName" class="form-control"></div>
+                <div class="col-md-6"><label class="form-label">Avatar URL</label><input id="profileAvatarUrl" class="form-control"></div>
+                <div class="col-12 text-end"><button class="btn btn-primary" type="submit">Save</button></div>
+              </form>
+
+              <hr>
+              <div class="small-muted">Data</div>
+              <div class="mt-2 d-flex gap-2">
+                <button class="btn btn-outline-secondary" id="btnExport">Export Data</button>
+                <button class="btn btn-outline-secondary" id="btnImport">Import Data</button>
+                <button class="btn btn-outline-danger" id="btnReset">Reset Demo</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NGOS / ABOUT -->
+      <section id="page-about" class="page">
+        <div class="card-surface">
+          <h4>About & Partners</h4>
+          <div class="small-muted">Fix The World demo. This single-file web app simulates a real product. You can later add a backend, integrate payment/donation, or plug a GPT-powered AI.</div>
+          <div class="row g-3 mt-3" id="ngosGrid"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Floating create -->
+    <button class="floating-btn" id="fabCreate" title="Create mission"><i class="fa-solid fa-plus"></i></button>
+
+    <!-- Footer -->
+    <div class="footer">Fix The World • Demo — Data stored locally in your browser • Works offline after first load (map tiles cached on demand)</div>
+
+    <!-- Mission Modal -->
+    <div class="modal fade" id="modalMission" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 id="modalTitle" class="modal-title">Mission</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body" id="modalBody"></div>
+          <div class="modal-footer">
+            <button id="modalAI" class="btn btn-outline-primary">AI Guide</button>
+            <button id="modalComplete" class="btn btn-success">Mark Complete</button>
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toasts" style="position:fixed; right:18px; bottom:18px; z-index:1500;"></div>
+
+  </div>
+
+  <!-- Scripts: Bootstrap + Leaflet -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+/* =========================
+   Fix The World — Single-file SPA
+   Version: FTW_HTML_V3
+   Features included:
+   - SPA routing
+   - Missions (create, complete)
+   - Leaflet map + create-on-click
+   - Local AI templates + placeholder for real GPT
+   - Dark mode, PWA service worker (dynamic), export/import JSON
+   - Data in localStorage under FTW_STATE_V3
+   ========================= */
+
+const STORAGE_KEY = 'FTW_STATE_V3';
+let state = {
+  user: { name: 'You', avatar: 'https://i.pravatar.cc/64?img=5', xp: 0 },
+  missions: [], leaders: [], ngos: [], activity: []
+};
+
+// ---------- Helper utilities ----------
+function uid(prefix='id'){ return prefix + Math.random().toString(36).slice(2,9); }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function load(){ const s = localStorage.getItem(STORAGE_KEY); if(s){ try { state = JSON.parse(s); } catch(e){ console.error('load fail',e); } } }
+function toast(msg, t=3000){ const area = document.getElementById('toasts'); const el = document.createElement('div'); el.className='toast show align-items-center text-bg-dark border-0'; el.style.marginTop='8px'; el.innerHTML = '<div class="d-flex"><div class="toast-body">'+msg+'</div><button class="btn-close btn-close-white me-2 m-auto" onclick="this.parentNode.parentNode.remove()"></button></div>'; area.appendChild(el); setTimeout(()=>el.remove(), t); }
+function escapeHtml(s){ return (s||'').toString().replace(/[&<"'>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+// ---------- Seed default data ----------
+function seedDemo(){
+  state.missions = [
+    { id: uid('m'), title:'Clean riverside', category:'Environment', desc:'Collect litter along the river and sort recyclables.', latlng:[30.0444,31.2357], photo:null, created: Date.now()-86400000, addedBy:'Amina' },
+    { id: uid('m'), title:'Teach basic math', category:'Education', desc:'Volunteer a 30-min math activity for children.', latlng:[51.5074,-0.1278], photo:null, created: Date.now()-172800000, addedBy:'Carlos' },
+    { id: uid('m'), title:'Distribute water bottles', category:'Water & Food', desc:'Hand out sealed water to workers on hot days.', latlng:[-34.6037,-58.3816], photo:null, created: Date.now()-3600000, addedBy:'Lina' }
+  ];
+  state.leaders = [
+    { id: uid('p'), name:'Amina', xp:480, avatar:'https://i.pravatar.cc/64?img=12' },
+    { id: uid('p'), name:'Carlos', xp:330, avatar:'https://i.pravatar.cc/64?img=15' },
+    { id: uid('p'), name:'Lina', xp:270, avatar:'https://i.pravatar.cc/64?img=18' }
+  ];
+  state.ngos = [
+    { id: uid('g'), name:'Green Planet', desc:'Tree planting & cleanups', url:'#', logo:'https://picsum.photos/seed/1/320/200' },
+    { id: uid('g'), name:'FoodShare', desc:'Local food distribution', url:'#', logo:'https://picsum.photos/seed/2/320/200' },
+    { id: uid('g'), name:'TeachUp', desc:'Education for all', url:'#', logo:'https://picsum.photos/seed/3/320/200' }
+  ];
+  state.activity = [{ id: uid('a'), text:'Demo seeded', ts: Date.now() }];
+  save();
+}
+
+// ---------- AI templates (client-side) ----------
+const aiTemplates = {
+  'Environment': [
+    "Wear gloves, bring trash bags and a rake.",
+    "Gather a small team (2–6 people).",
+    "Collect, separate recyclables, take photos.",
+    "Drop recyclables at local center and report hotspots."
+  ],
+  'Human Help': [
+    "Approach kindly; ask how you can help.",
+    "Offer food/water/contacts for shelters.",
+    "If urgent, call emergency services.",
+    "Document and connect to an NGO for follow-up."
+  ],
+  'Education': [
+    "Prepare a 20–30 minute lesson plan.",
+    "Use hands-on activities and visuals.",
+    "Give a small task and review it together.",
+    "Provide next-step resources for learners."
+  ],
+  'Local Fix': [
+    "Photograph issue and record location.",
+    "Report to municipality with clear evidence.",
+    "Perform a safe temporary fix if possible.",
+    "Coordinate with neighbors for long-term repair."
+  ],
+  'Water & Food': [
+    "Coordinate with local food banks.",
+    "Verify food safety before distribution.",
+    "Distribute sealed water or filtered water.",
+    "Track recipients to avoid duplication."
+  ],
+  'Mental Health': [
+    "Listen without judgment, give time.",
+    "Ask about immediate safety if concerned.",
+    "Offer helpline contacts and follow up.",
+    "Encourage professional help when necessary."
+  ]
+};
+
+// ---------- SPA routing ----------
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-' + name);
+  if(el) el.classList.add('active');
+  document.querySelectorAll('[data-link]').forEach(a => a.classList.toggle('active', a.getAttribute('data-link') === name));
+  // page-specific hooks
+  if(name === 'home') { fitMapToMissions(); renderMiniLeaders(); updateHomeStats(); }
+  if(name === 'map') { fitMapToMissionsLarge(); updateMapPageStats(); }
+  if(name === 'missions') { renderMissionsGrid(); renderMyMissions(); }
+  if(name === 'leaders') { renderLeaders(); renderProgress(); }
+  if(name === 'ai') { populateAiSelect(); }
+  if(name === 'about') { renderNgos(); }
+}
+document.querySelectorAll('[data-link]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); const name = a.getAttribute('data-link'); showPage(name); }));
+
+// ---------- Map(s) ----------
+let mapMain = null, mapLarge = null, markersLayerMain = null, markersLayerLarge = null;
+function initMaps(){
+  try{
+    mapMain = L.map('map', { zoomControl:true }).setView([20,0], 2);
+    mapLarge = L.map('mapLarge', { zoomControl:true }).setView([20,0], 2);
+    const tile = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    L.tileLayer(tile, { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(mapMain);
+    L.tileLayer(tile, { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(mapLarge);
+
+    markersLayerMain = L.layerGroup().addTo(mapMain);
+    markersLayerLarge = L.layerGroup().addTo(mapLarge);
+
+    // click to pre-fill create location and switch to create page
+    [mapMain, mapLarge].forEach(m => {
+      m.on('click', e => {
+        document.getElementById('cLatLng').value = e.latlng.lat.toFixed(6) + ',' + e.latlng.lng.toFixed(6);
+        showPage('create');
+        toast('Map coordinates filled into Create form.');
+      });
+    });
+  } catch(e){ console.warn('map init error', e); }
+}
+
+function renderMarkers(){
+  if(!markersLayerMain || !markersLayerLarge) return;
+  markersLayerMain.clearLayers();
+  markersLayerLarge.clearLayers();
+  (state.missions || []).forEach(m => {
+    const iconHtml = `<div style="background:linear-gradient(135deg,#34d399,#60a5fa);padding:8px;border-radius:10px;"><i style="color:white" class="fa-solid fa-leaf"></i></div>`;
+    const icon = L.divIcon({ html:iconHtml, className:'', iconSize:[34,34] });
+    const latlng = m.latlng || [0,0];
+    const marker1 = L.marker(latlng, { icon }).bindPopup(`<strong>${escapeHtml(m.title)}</strong><br><small class="small-muted">${escapeHtml(m.category)}</small>`);
+    marker1.on('click', ()=> openMissionModal(m.id));
+    markersLayerMain.addLayer(marker1);
+    const marker2 = L.marker(latlng, { icon }).bindPopup(`<strong>${escapeHtml(m.title)}</strong><br><small class="small-muted">${escapeHtml(m.category)}</small>`);
+    marker2.on('click', ()=> openMissionModal(m.id));
+    markersLayerLarge.addLayer(marker2);
+  });
+}
+
+function fitMapToMissions(){
+  const ms = state.missions || [];
+  if(ms.length===0) return;
+  const group = L.featureGroup(ms.map(m => L.marker(m.latlng || [0,0])));
+  mapMain.fitBounds(group.getBounds(), { padding:[40,40] });
+}
+function fitMapToMissionsLarge(){
+  const ms = state.missions || [];
+  if(ms.length===0) return;
+  const group = L.featureGroup(ms.map(m => L.marker(m.latlng || [0,0])));
+  mapLarge.fitBounds(group.getBounds(), { padding:[40,40] });
+}
+
+// ---------- Missions UI & logic ----------
+let currentFilter = '';
+function renderMissionsGrid(q=''){
+  const grid = document.getElementById('missionsGrid');
+  grid.innerHTML = '';
+  const list = (state.missions || []).slice().reverse();
+  const query = (q || '').toLowerCase();
+  list.forEach(m => {
+    if(currentFilter && m.category !== currentFilter) return;
+    if(query && !((m.title||'').toLowerCase().includes(query) || (m.desc||'').toLowerCase().includes(query))) return;
+    const col = document.createElement('div'); col.className = 'col-md-6';
+    col.innerHTML = `
+      <div class="card-surface">
+        ${m.photo ? `<img src="${m.photo}" class="mission-photo mb-2">` : ''}
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div style="font-weight:700">${escapeHtml(m.title)}</div>
+            <div class="small-muted">${escapeHtml(m.desc)}</div>
+            <div class="mt-2"><span class="tag">${escapeHtml(m.category)}</span> <small class="small-muted"> • ${escapeHtml(m.addedBy||'Anonymous')}</small></div>
+          </div>
+          <div class="text-end">
+            <div class="small-muted">${new Date(m.created).toLocaleString()}</div>
+            <div class="mt-2">
+              <button class="btn btn-sm btn-outline-primary me-1" data-action="view" data-id="${m.id}"><i class="fa-solid fa-eye"></i></button>
+              <button class="btn btn-sm btn-success" data-action="complete" data-id="${m.id}"><i class="fa-solid fa-check"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(col);
+  });
+}
+
+document.getElementById('missionsGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.getAttribute('data-action');
+  const id = btn.getAttribute('data-id');
+  if(action === 'view') openMissionModal(id);
+  if(action === 'complete') completeMissionById(id);
+});
+
+function openMissionModal(id){
+  const m = (state.missions || []).find(x => x.id === id);
+  if(!m) return;
+  document.getElementById('modalTitle').innerText = m.title;
+  const photoHtml = m.photo ? `<img src="${m.photo}" style="width:100%;border-radius:8px;margin-bottom:8px;">` : '';
+  const latlngText = m.latlng ? `${m.latlng[0].toFixed(5)}, ${m.latlng[1].toFixed(5)}` : '—';
+  document.getElementById('modalBody').innerHTML = `
+    ${photoHtml}
+    <div style="font-weight:700">${escapeHtml(m.title)}</div>
+    <div class="small-muted">${escapeHtml(m.category)} • ${new Date(m.created).toLocaleString()}</div>
+    <p class="mt-2">${escapeHtml(m.desc)}</p>
+    <div class="small-muted">Location: ${latlngText}</div>
+  `;
+  document.getElementById('modalAI').onclick = () => {
+    document.getElementById('modalBody').innerHTML += `<hr>${renderAiForMission(m)}`;
+  };
+  document.getElementById('modalComplete').onclick = () => {
+    completeMissionById(m.id);
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalMission'));
+    modal.hide();
+  };
+  const modal = new bootstrap.Modal(document.getElementById('modalMission'));
+  modal.show();
+}
+
+function completeMissionById(id){
+  const idx = state.missions.findIndex(m => m.id === id);
+  if(idx === -1) return;
+  const m = state.missions[idx];
+  const xp = 30 + Math.floor(Math.random() * 60);
+  state.user.xp = (state.user.xp || 0) + xp;
+  state.leaders.push({ id: uid('p'), name: state.user.name, xp: state.user.xp, avatar: state.user.avatar });
+  state.activity.unshift({ id: uid('a'), text: `Completed "${m.title}" (+${xp} XP)`, ts: Date.now() });
+  state.missions.splice(idx, 1);
+  save();
+  toast(`Mission completed! +${xp} XP`);
+  refreshAll();
+}
+
+// ---------- Create mission form ----------
+document.getElementById('formCreate').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = document.getElementById('cTitle').value.trim();
+  const category = document.getElementById('cCategory').value;
+  const desc = document.getElementById('cDesc').value.trim();
+  const latlngRaw = document.getElementById('cLatLng').value.trim();
+  let latlng = null;
+  if(latlngRaw){
+    const p = latlngRaw.split(',').map(x => parseFloat(x.trim()));
+    if(p.length === 2 && !isNaN(p[0]) && !isNaN(p[1])) latlng = [p[0], p[1]];
+  }
+  let photo = null;
+  const file = document.getElementById('cPhoto').files[0];
+  if(file) photo = await fileToDataURL(file);
+
+  const m = { id: uid('m'), title, category, desc, latlng: latlng || mapMain.getCenter(), photo, created: Date.now(), addedBy: state.user.name };
+  state.missions.push(m);
+  state.activity.unshift({ id: uid('a'), text: `Added mission "${m.title}"`, ts: Date.now() });
+  save();
+  toast('Mission created');
+  document.getElementById('formCreate').reset();
+  showPage('missions');
+  refreshAll();
+});
+
+function fileToDataURL(file){ return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
+
+// ---------- AI Helper functions ----------
+function populateAiSelect(){
+  const sel = document.getElementById('aiMissionSelect');
+  sel.innerHTML = '<option value="">— Choose mission —</option>';
+  (state.missions || []).forEach(m => {
+    const opt = document.createElement('option'); opt.value = m.id; opt.textContent = m.title; sel.appendChild(opt);
+  });
+}
+document.getElementById('btnAskAI').addEventListener('click', () => {
+  const q = document.getElementById('aiQuestion').value.trim();
+  if(!q){ toast('Type a question or select a mission'); return; }
+  // This demo responds using a small client-side heuristic (no API key here).
+  const html = `<div style="font-weight:700">Mock AI Reply</div><p class="small-muted">This demo uses local templates to show how guidance will appear. To use real GPT, set up a secure backend and call the OpenAI API from server-side.</p><div style="margin-top:8px">Q: ${escapeHtml(q)}</div><div style="margin-top:8px">${escapeHtml(simpleAiReply(q))}</div>`;
+  document.getElementById('aiResult').innerHTML = html;
+});
+
+// when AI mission selected
+document.getElementById('aiMissionSelect').addEventListener('change', (e) => {
+  const id = e.target.value;
+  if(!id){ document.getElementById('aiResult').innerHTML = ''; return; }
+  const m = state.missions.find(x => x.id === id);
+  if(!m) return;
+  document.getElementById('aiResult').innerHTML = renderAiForMission(m);
+});
+
+function renderAiForMission(m){
+  const steps = aiTemplates[m.category] || ["1) Assess the situation", "2) Start with small actions", "3) Ask for help"];
+  let html = `<div style="font-weight:700">AI Guide — ${escapeHtml(m.title)}</div><ol class="mt-2">`;
+  steps.forEach(s => html += `<li>${escapeHtml(s)}</li>`);
+  html += `</ol><div class="small-muted">Tip: Prioritize safety, take photos, and coordinate with local authorities where necessary.</div>`;
+  return html;
+}
+function simpleAiReply(q){
+  // small heuristic: if keyword found, return relevant template bullet
+  q = q.toLowerCase();
+  if(q.includes('trash') || q.includes('clean') || q.includes('litter')) return aiTemplates['Environment'].join(' — ');
+  if(q.includes('teach') || q.includes('lesson') || q.includes('kids')) return aiTemplates['Education'].join(' — ');
+  if(q.includes('water') || q.includes('food')) return aiTemplates['Water & Food'] ? aiTemplates['Water & Food'].join(' — ') : 'Coordinate with local food banks.';
+  return 'Start small, document the situation, ask local volunteers, and report to authorities if needed.';
+}
+
+// ---------- Leaders, progress, recent activity ----------
+function renderMiniLeaders(){
+  const el = document.getElementById('miniLeaders'); el.innerHTML = '';
+  const top = (state.leaders||[]).slice().sort((a,b)=>b.xp-a.xp).slice(0,5);
+  top.forEach((p,i)=>{
+    const li = document.createElement('li'); li.className = 'list-group-item d-flex align-items-center';
+    li.innerHTML = `<img src="${p.avatar}" style="width:42px;height:42px;border-radius:8px;margin-right:10px"><div style="flex:1"><div style="font-weight:700">${p.name}</div><div class="small-muted">XP ${p.xp}</div></div><div style="font-weight:700">${i+1}</div>`;
+    el.appendChild(li);
+  });
+}
+
+function renderLeaders(){
+  const el = document.getElementById('leadersList'); el.innerHTML = '';
+  const top = (state.leaders||[]).slice().sort((a,b)=>b.xp-a.xp).slice(0,10);
+  top.forEach((p,i)=>{
+    const li = document.createElement('li'); li.className = 'list-group-item d-flex align-items-center';
+    li.innerHTML = `<img src="${p.avatar}" style="width:48px;height:48px;border-radius:8px;margin-right:12px"><div style="flex:1"><div style="font-weight:700">${p.name}</div><div class="small-muted">XP ${p.xp}</div></div><div style="font-weight:700">${i+1}</div>`;
+    el.appendChild(li);
+  });
+}
+
+function renderProgress(){
+  const box = document.getElementById('progressBox'); const xp = state.user.xp || 0;
+  const levels = [{n:'Beginner',xp:0},{n:'Fixer',xp:50},{n:'Hero',xp:200},{n:'World Changer',xp:600},{n:'Legend',xp:1500}];
+  let cur = levels[0], next = levels[1];
+  for(let i=levels.length-1;i>=0;i--){ if(xp>=levels[i].xp){ cur = levels[i]; next = levels[i+1] || levels[i]; break; } }
+  const progress = Math.min(100, Math.round((xp - cur.xp) / Math.max(1, next.xp - cur.xp) * 100));
+  box.innerHTML = `<div style="font-weight:700">${escapeHtml(state.user.name)} — ${cur.n}</div><div class="small-muted">XP ${xp} • Progress to next: ${progress}%</div><div class="progress mt-2"><div class="progress-bar" role="progressbar" style="width:${progress}%"></div></div>`;
+  document.getElementById('headerXP').innerText = 'XP: ' + xp;
+  document.getElementById('headerLevel').innerText = cur.n;
+  document.getElementById('xpTop').innerText = 'XP: ' + xp;
+  document.getElementById('levelTop').innerText = cur.n;
+}
+
+// ---------- My Missions & Recent Activity ----------
+function renderMyMissions(){
+  const el = document.getElementById('myMissions'); el.innerHTML = '';
+  const mine = (state.missions || []).filter(m => (m.addedBy || state.user.name) === state.user.name);
+  if(mine.length === 0){ el.innerHTML = '<div class="small-muted">No missions added yet.</div>'; return; }
+  mine.forEach(m => {
+    const d = document.createElement('div'); d.className = 'mb-2';
+    d.innerHTML = `<div style="font-weight:700">${escapeHtml(m.title)}</div><div class="small-muted">${escapeHtml(m.category)} • ${new Date(m.created).toLocaleDateString()}</div>`;
+    el.appendChild(d);
+  });
+}
+
+function renderRecentActivity(){
+  const el = document.getElementById('todayBox');
+  // also a quick feed below map? We'll show recent activity in console and toast
+  // For simplicity, render recent activity items in developer console + pop small list in about later
+}
+
+// ---------- NGOs ----------
+function renderNgos(){
+  const grid = document.getElementById('ngosGrid'); grid.innerHTML = '';
+  (state.ngos || []).forEach(n => {
+    const div = document.createElement('div'); div.className = 'col-md-4';
+    div.innerHTML = `<div class="card-surface"><img src="${n.logo}" style="width:100%;height:140px;object-fit:cover;border-radius:8px"><div style="font-weight:700;margin-top:8px">${escapeHtml(n.name)}</div><div class="small-muted">${escapeHtml(n.desc)}</div><div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="${n.url}" target="_blank">Visit</a></div></div>`;
+    grid.appendChild(div);
+  });
+}
+
+// ---------- Search & filters ----------
+document.getElementById('searchBox').addEventListener('input', (e)=> renderMissionsGrid(e.target.value));
+document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
+  currentFilter = b.getAttribute('data-cat') || '';
+  renderMissionsGrid(document.getElementById('searchBox').value || '');
+  renderMarkers();
+}));
+
+// ---------- Daily mission generator ----------
+function generateDaily(){
+  const samples = [
+    { title:'Pick up 10 pieces of trash', category:'Environment', desc:'Collect litter in one small area and dispose responsibly.' },
+    { title:'Donate 1 kg of food', category:'Water & Food', desc:'Donate non-perishable food to a food bank or family in need.' },
+    { title:'Teach a 15-min skill', category:'Education', desc:'Teach someone a useful small skill for 15 minutes.' },
+    { title:'Say hello to a neighbor', category:'Mental Health', desc:'Talk kindly to someone who may be alone.' },
+    { title:'Report a street hazard', category:'Local Fix', desc:'Take photos of hazard and notify local authorities.' }
+  ];
+  window.dailyMission = Object.assign({}, samples[Math.floor(Math.random()*samples.length)]);
+  document.getElementById('todayTitle').innerText = window.dailyMission.title;
+  document.getElementById('todayDesc').innerText = window.dailyMission.desc;
+}
+document.getElementById('btnDailyHome').addEventListener('click', ()=> { generateDaily(); toast('Daily mission generated'); });
+document.getElementById('btnAddToday').addEventListener('click', ()=> {
+  if(!window.dailyMission){ toast('No daily mission yet'); return; }
+  const m = window.dailyMission; m.id = uid('m'); m.created = Date.now(); m.addedBy = state.user.name; state.missions.push(m); state.activity.unshift({ id: uid('a'), text:`Added daily mission "${m.title}"`, ts: Date.now() }); save(); toast('Daily mission added'); refreshAll();
+});
+
+// ---------- Export / Import / Reset ----------
+function exportState(){
+  const dataStr = JSON.stringify(state, null, 2);
+  const blob = new Blob([dataStr], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'fix_the_world_demo_state.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+function importStateFile(file){
+  const fr = new FileReader();
+  fr.onload = ()=> {
+    try { state = JSON.parse(fr.result); save(); refreshAll(); toast('State imported'); }
+    catch(e){ toast('Import failed: invalid JSON'); }
+  };
+  fr.readAsText(file);
+}
+document.getElementById('btnExport').addEventListener('click', exportState);
+document.getElementById('menuExport').addEventListener('click', exportState);
+document.getElementById('btnImport').addEventListener('click', ()=> {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange = ()=> importStateFile(inp.files[0]); inp.click();
+});
+document.getElementById('menuImport').addEventListener('click', ()=> {
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange = ()=> importStateFile(inp.files[0]); inp.click();
+});
+document.getElementById('btnReset').addEventListener('click', ()=> {
+  if(confirm('Reset demo data? This will clear missions and leaders.')){ localStorage.removeItem(STORAGE_KEY); state = { user:{ name:'You', avatar:'https://i.pravatar.cc/64?img=5', xp:0 }, missions:[], leaders:[], ngos:[], activity:[] }; seedDemo(); load(); save(); refreshAll(); toast('Demo reset'); }
+});
+document.getElementById('menuReset').addEventListener('click', ()=> document.getElementById('btnReset').click());
+
+// ---------- Profile -->
+document.getElementById('profileForm').addEventListener('submit', (e)=> {
+  e.preventDefault();
+  const name = document.getElementById('profileName').value.trim() || 'You';
+  const avatar = document.getElementById('profileAvatarUrl').value.trim() || state.user.avatar;
+  state.user.name = name; state.user.avatar = avatar;
+  save(); refreshAll(); toast('Profile saved');
+});
+document.getElementById('profileAvatarUrl').addEventListener('input', (e)=> document.getElementById('profileAvatar').src = e.target.value || 'https://i.pravatar.cc/128?img=5');
+
+// ---------- Seed button -->
+document.getElementById('btnSeedHome').addEventListener('click', ()=> { seedDemo(); load(); save(); refreshAll(); toast('Demo missions seeded'); });
+
+// ---------- Floating create -->
+document.getElementById('fabCreate').addEventListener('click', ()=> showPage('create'));
+
+// ---------- Map & UI refresh ----------
+function refreshAll(){
+  load();
+  renderMarkers();
+  renderMissionsGrid();
+  renderMyMissions();
+  renderMiniLeaders();
+  renderLeaders();
+  renderProgress();
+  renderNgos();
+  updateHomeStats();
+  updateMapPageStats();
+  updateUserUI();
+}
+function updateHomeStats(){
+  document.getElementById('homeStats').innerText = `${(state.missions||[]).length} missions • ${((state.missions||[]).length>0) ? 'viewed locally' : '—'}`;
+}
+function updateMapPageStats(){
+  document.getElementById('mapPageStats').innerText = `${(state.missions||[]).length} missions`;
+}
+function updateUserUI(){
+  document.getElementById('profileName').value = state.user.name || 'You';
+  document.getElementById('profileAvatarUrl').value = state.user.avatar || '';
+  document.getElementById('navAvatar').src = state.user.avatar || 'https://i.pravatar.cc/64?img=5';
+  document.getElementById('profileAvatar').src = state.user.avatar || 'https://i.pravatar.cc/128?img=5';
+  document.getElementById('headerXP').innerText = 'XP: ' + (state.user.xp || 0);
+  document.getElementById('headerLevel').innerText = (state.user.xp >= 600 ? 'World Changer' : state.user.xp >= 200 ? 'Hero' : state.user.xp >= 50 ? 'Fixer' : 'Beginner');
+  document.getElementById('xpTop').innerText = 'XP: ' + (state.user.xp || 0);
+  document.getElementById('levelTop').innerText = document.getElementById('headerLevel').innerText;
+}
+
+// ---------- Dark mode toggle (persisted) ----------
+const appEl = document.getElementById('app');
+const themeKey = 'FTW_THEME';
+function setTheme(t){
+  appEl.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('toggleTheme').innerHTML = t === 'dark' ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+}
+document.getElementById('toggleTheme').addEventListener('click', ()=> setTheme(appEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+// ---------- PWA: register service worker dynamically ----------
+let deferredPrompt = null;
+if('serviceWorker' in navigator){
+  // create a minimal service worker script as a blob and register it
+  const swCode = `
+    const CACHE = 'ftw-shell-v1';
+    const OFFLINE_URL = '/';
+    self.addEventListener('install', event => {
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', event => {
+      event.waitUntil(self.clients.claim());
+    });
+    self.addEventListener('fetch', event => {
+      // Basic network-first for navigation, cache-first for others
+      if(event.request.mode === 'navigate'){
+        event.respondWith(fetch(event.request).catch(()=> caches.match(OFFLINE_URL)));
+        return;
+      }
+      event.respondWith(caches.match(event.request).then(resp=> resp || fetch(event.request).then(r=> { if(r && r.status === 200 && r.type === 'basic'){ caches.open(CACHE).then(c=> c.put(event.request, r.clone())); } return r; }).catch(()=>{})));
+    });
+  `;
+  const blob = new Blob([swCode], { type:'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).then(reg => {
+    console.log('SW registered', reg);
+  }).catch(err => console.warn('SW register failed', err));
+
+  // Prompt handling (install) - show install button when available
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('btnInstall').style.display = 'inline-block'; });
+  document.getElementById('btnInstall').addEventListener('click', async () => {
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('btnInstall').style.display = 'none';
+  });
+}
+
+// ---------- Init on DOM ready ----------
+document.addEventListener('DOMContentLoaded', () => {
+  // Load theme
+  const t = localStorage.getItem(themeKey) || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  setTheme(t);
+
+  // Load persisted state or seed demo
+  load();
+  if(!(state.missions && state.missions.length)) seedDemo();
+  if(!(state.ngos && state.ngos.length)) { state.ngos = state.ngos || []; }
+  save();
+
+  // init maps
+  initMaps();
+  renderMarkers();
+
+  // render UI
+  refreshAll();
+  populateAiSelect();
+
+  // map fit
+  try{ fitMapToMissions(); }catch(e){}
+
+  // wire up mapLarge fit when switching to map page
+  document.querySelector('[data-link="map"]').addEventListener('click', ()=> setTimeout(()=> fitMapToMissionsLarge(), 400));
+});
+
+// ---------- Small helpers ----------
+document.querySelectorAll('[data-link]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); showPage(a.getAttribute('data-link')); }));
+
+// ensure initial UI elements updated
+updateUserUI();
+renderMiniLeaders();
+renderNgos();
+
+// expose some functions for debugging in console
+window.FTW = { state, save, load, seedDemo, exportState, importStateFile };
+
+// ---------- End of app script ----------
+  </script>
+
+</body>
+</html>
